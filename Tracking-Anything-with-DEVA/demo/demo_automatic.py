@@ -71,3 +71,14 @@ if __name__ == '__main__':
     # save this as a video-level json
     with open(path.join(out_path, 'pred.json'), 'w') as f:
         json.dump(result_saver.video_json, f, indent=4)  # prettier json
+
+    # Build and save object ID → text label mapping.
+    # Automatic SAM produces no class labels, so labels are generic placeholders.
+    # Collect every unique object ID that appeared in at least one frame's output.
+    all_ids = set()
+    for ann in result_saver.video_json['annotations']:
+        for seg in ann['segments_info']:
+            all_ids.add(seg['id'])
+    id_to_label = {str(obj_id): f'object_{obj_id}' for obj_id in sorted(all_ids)}
+    with open(path.join(out_path, 'id2label.json'), 'w') as f:
+        json.dump(id_to_label, f, indent=4)

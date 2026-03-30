@@ -93,7 +93,8 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, objects_fol
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
 
         image_path = os.path.join(images_folder, os.path.basename(extr.name))
-        image_name = os.path.basename(image_path).split(".")[0]
+        # image_name = os.path.basename(image_path).split(".")[0]
+        image_name = os.path.splitext(os.path.basename(image_path))[0]
         image = Image.open(image_path) if os.path.exists(image_path) else None
         object_path = os.path.join(objects_folder, image_name + '.png')
         objects = Image.open(object_path) if os.path.exists(object_path) else None
@@ -129,7 +130,7 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, object_path, llffhold=8, n_views=100, random_init=False, train_split=False):
+def readColmapSceneInfo(path, images, eval, object_path, llffhold=8, n_views=100, random_init=False, train_split=False, output_path=None):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -143,7 +144,10 @@ def readColmapSceneInfo(path, images, eval, object_path, llffhold=8, n_views=100
 
     reading_dir = "images" if images == None else images
     object_dir = 'object_mask' if object_path == None else object_path
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir), objects_folder=os.path.join(path, object_dir))
+    # os.path.join correctly handles an absolute object_dir by ignoring `path`.
+    images_folder = os.path.join(path, reading_dir) if not os.path.isabs(reading_dir) else reading_dir
+    objects_folder = os.path.join(path, object_dir) if not os.path.isabs(object_dir) else object_dir
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=images_folder, objects_folder=objects_folder)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
@@ -199,26 +203,39 @@ def readColmapSceneInfo(path, images, eval, object_path, llffhold=8, n_views=100
         # Since this data set has no colmap data, we start with random points
         num_pts = 100_000
         print(f"Generating random point cloud ({num_pts})...")
-        
+
         # We create random points inside the bounds of the synthetic Blender scenes
         xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
         shs = np.random.random((num_pts, 3)) / 255.0
         pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
-        
-        ply_path = os.path.join(path, "sparse/0/points3D_randinit.ply")
+
+        # Write to output_path to avoid modifying the input/source directory.
+        ply_path = os.path.join(output_path, "points3D_randinit.ply") if output_path \
+                   else os.path.join(path, "sparse/0/points3D_randinit.ply")
+        os.makedirs(os.path.dirname(os.path.abspath(ply_path)), exist_ok=True)
         storePly(ply_path, xyz, SH2RGB(shs) * 255)
 
     else:
-        ply_path = os.path.join(path, "sparse/0/points3D.ply")
-        bin_path = os.path.join(path, "sparse/0/points3D.bin")
-        txt_path = os.path.join(path, "sparse/0/points3D.txt")
-        if not os.path.exists(ply_path):
-            print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
-            try:
-                xyz, rgb, _ = read_points3D_binary(bin_path)
-            except:
-                xyz, rgb, _ = read_points3D_text(txt_path)
-            storePly(ply_path, xyz, rgb)
+        source_ply = os.path.join(path, "sparse/0/points3D.ply")
+        if os.path.exists(source_ply):
+            # Already converted on a previous run — use it (read-only).
+            ply_path = source_ply
+        else:
+            # Write the converted .ply to output_path so the source directory
+            # is never modified.  Fall back to source_ply only when no
+            # output_path is provided (backward-compatible behaviour).
+            ply_path = os.path.join(output_path, "points3D.ply") if output_path \
+                       else source_ply
+            bin_path = os.path.join(path, "sparse/0/points3D.bin")
+            txt_path = os.path.join(path, "sparse/0/points3D.txt")
+            if not os.path.exists(ply_path):
+                print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
+                try:
+                    xyz, rgb, _ = read_points3D_binary(bin_path)
+                except:
+                    xyz, rgb, _ = read_points3D_text(txt_path)
+                os.makedirs(os.path.dirname(os.path.abspath(ply_path)), exist_ok=True)
+                storePly(ply_path, xyz, rgb)
     try:
         pcd = fetchPly(ply_path)
     except:

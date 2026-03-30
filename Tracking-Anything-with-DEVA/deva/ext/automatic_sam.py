@@ -1,8 +1,8 @@
 # Reference: https://github.com/IDEA-Research/Grounded-Segment-Anything
 
 from typing import Dict, List, Optional
-import numpy as np
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -61,6 +61,7 @@ def auto_segment(config: Dict, auto_sam: SamAutomaticMaskGenerator, image: np.nd
     if min_side > 0:
         scale = min_side / min(h, w)
         new_h, new_w = int(h * scale), int(w * scale)
+        image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
     else:
         new_h, new_w = h, w
 

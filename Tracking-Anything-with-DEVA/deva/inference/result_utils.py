@@ -233,7 +233,9 @@ def save_result(queue: Queue):
                     this_out_path = path.join(this_out_path, saver.video_name)
 
                 os.makedirs(this_out_path, exist_ok=True)
-                out_img.save(path.join(this_out_path, frame_name[:-4] + '.png'))
+                out_mask_file = path.join(this_out_path, frame_name[:-4] + '.png')
+                os.makedirs(path.dirname(out_mask_file), exist_ok=True)
+                out_img.save(out_mask_file)
 
             if saver.visualize:
                 if image_np is None:
@@ -279,7 +281,9 @@ def save_result(queue: Queue):
                         this_out_path = path.join(this_out_path, saver.video_name)
 
                     os.makedirs(this_out_path, exist_ok=True)
-                    Image.fromarray(blend).save(path.join(this_out_path, frame_name[:-4] + '.jpg'))
+                    out_vis_file = path.join(this_out_path, frame_name[:-4] + '.jpg')
+                    os.makedirs(path.dirname(out_vis_file), exist_ok=True)
+                    Image.fromarray(blend).save(out_vis_file)
                 else:
                     saver.writer.write(blend[:, :, ::-1])
 

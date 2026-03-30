@@ -85,6 +85,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Object Loss
         gt_obj = viewpoint_cam.objects.cuda().long()
+
+        # Validate that gt_obj values are within valid range
+        if gt_obj.min() < 0 or gt_obj.max() >= num_classes:
+            raise ValueError(
+                f"Ground truth object labels contain values outside valid range [0, {num_classes-1}]. "
+                f"Found min={gt_obj.min().item()}, max={gt_obj.max().item()}. "
+                f"Please increase 'num_classes' in your config file to at least {gt_obj.max().item() + 1}."
+            )
+
         logits = classifier(objects)
         loss_obj = cls_criterion(logits.unsqueeze(0), gt_obj.unsqueeze(0)).squeeze().mean()
         loss_obj = loss_obj / torch.log(torch.tensor(num_classes))  # normalize to (0,1)

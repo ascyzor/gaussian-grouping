@@ -68,3 +68,22 @@ if __name__ == '__main__':
     # save this as a video-level json
     with open(path.join(out_path, 'pred.json'), 'w') as f:
         json.dump(result_saver.video_json, f, indent=4)  # prettier json
+
+    # Build and save object ID → text label mapping.
+    # category_id is an index into the prompts list; use it to attach the class name.
+    # Objects that lost tracking may have category_id=None, fall back to "object_{id}".
+    prompts = cfg['prompt'].split('.')
+    all_ids: dict = {}  # obj_id -> label
+    for ann in result_saver.video_json['annotations']:
+        for seg in ann['segments_info']:
+            obj_id = seg['id']
+            if obj_id not in all_ids:
+                cat = seg.get('category_id')
+                if cat is not None and 0 <= cat < len(prompts):
+                    label = prompts[cat].strip()
+                else:
+                    label = f'object_{obj_id}'
+                all_ids[obj_id] = label
+    id_to_label = {str(k): v for k, v in sorted(all_ids.items())}
+    with open(path.join(out_path, 'id2label.json'), 'w') as f:
+        json.dump(id_to_label, f, indent=4)

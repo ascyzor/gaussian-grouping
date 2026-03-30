@@ -44,7 +44,10 @@ def process_frame_automatic(deva: DEVAInferenceCore,
     need_resize = new_min_side > 0
     image = get_input_frame_for_deva(image_np, new_min_side)
 
-    frame_name = path.basename(frame_path)
+    # Preserve subfolder structure (e.g. 'pano_camera0/frame001.jpg') so that
+    # output masks mirror the input directory layout for multi-camera datasets.
+    # Falls back to basename when frame_path is already directly under img_path.
+    frame_name = path.relpath(frame_path, cfg['img_path'])
     frame_info = FrameInfo(image, None, None, ti, {
         'frame': [frame_name],
         'shape': [h, w],

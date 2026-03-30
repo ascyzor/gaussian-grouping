@@ -23,6 +23,9 @@ parser.add_argument("--camera", default="OPENCV", type=str)
 parser.add_argument("--colmap_executable", default="", type=str)
 parser.add_argument("--resize", action="store_true")
 parser.add_argument("--magick_executable", default="", type=str)
+parser.add_argument("--single_camera", type=int, default=1,
+                    help="Set to 1 for single camera (all images same dimensions), 0 for multiple cameras (allows different dimensions)")
+
 args = parser.parse_args()
 colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
 magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
@@ -35,9 +38,10 @@ if not args.skip_matching:
     feat_extracton_cmd = colmap_command + " feature_extractor "\
         "--database_path " + args.source_path + "/distorted/database.db \
         --image_path " + args.source_path + "/input \
-        --ImageReader.single_camera 1 \
+        --ImageReader.single_camera " + str(args.single_camera) + " \
         --ImageReader.camera_model " + args.camera + " \
-        --SiftExtraction.use_gpu " + str(use_gpu)
+        --FeatureExtraction.use_gpu " + str(use_gpu) + " \
+        --FeatureExtraction.gpu_index " + ("0" if use_gpu else "-1")
     exit_code = os.system(feat_extracton_cmd)
     if exit_code != 0:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
@@ -46,7 +50,8 @@ if not args.skip_matching:
     ## Feature matching
     feat_matching_cmd = colmap_command + " exhaustive_matcher \
         --database_path " + args.source_path + "/distorted/database.db \
-        --SiftMatching.use_gpu " + str(use_gpu)
+        --FeatureMatching.use_gpu " + str(use_gpu) + " \
+        --FeatureMatching.gpu_index " + ("0" if use_gpu else "-1")
     exit_code = os.system(feat_matching_cmd)
     if exit_code != 0:
         logging.error(f"Feature matching failed with code {exit_code}. Exiting.")

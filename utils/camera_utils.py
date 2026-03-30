@@ -14,6 +14,7 @@ import numpy as np
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
 import torch
+from PIL import Image
 
 WARNED = False
 
@@ -47,11 +48,18 @@ def loadCam(args, id, cam_info, resolution_scale):
     if resized_image_rgb.shape[1] == 4:
         loaded_mask = resized_image_rgb[3:4, ...]
 
-    return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
+    # Resize objects mask to match the resized image dimensions
+    if cam_info.objects is not None:
+        resized_objects = cam_info.objects.resize(resolution, Image.NEAREST)
+        objects_tensor = torch.from_numpy(np.array(resized_objects))
+    else:
+        objects_tensor = None
+
+    return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T,
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
                   image=gt_image, gt_alpha_mask=loaded_mask,
                   image_name=cam_info.image_name, uid=id, data_device=args.data_device,
-                  objects=torch.from_numpy(np.array(cam_info.objects)))
+                  objects=objects_tensor)
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):
     camera_list = []
